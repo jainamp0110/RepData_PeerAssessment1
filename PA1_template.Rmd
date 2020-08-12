@@ -1,25 +1,172 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+   **Personal Movement Analysis** 
+==========================
+
+This is an Analysis Report as a part of the Project Assignment of the Reproducible Research Course. The data is collected from Personal Activity Monitoring Devices at 5-minute intervals from October and November, 2012.
+
+## **Loading and Preprocessing the Data**
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+The variables included are:
+
+- **steps:** Number of steps taking in a 5-minute interval(missing values:NA)
+
+- **date:** The date on which the measurement was taken in YYYY-MM-DD format
+
+- **interval:** Identifier for the 5-minute interval in which measurement was taken
+
+```{r Read&ProcessData}
+data<-read.csv("activity.csv")
+data$date<-as.Date(data$date)
+```
+
+## **What is mean total number of steps taken per day?**
+
+### 1.The total number of steps taken per day
+
+```{r totalsteps}
+total.steps<-with(data,tapply(steps,date,sum,na.rm=TRUE))
+df1<-data.frame(dates=names(total.steps),totalSteps=total.steps)
+rownames(df1)<-seq(1,61,by=1)
+head(df1)
+```
+### 2.Make a Histogram of total number of steps taken each day
+
+```{r g1}
+library(ggplot2)
+g<-ggplot(df1,aes(x=dates,y=totalSteps))+
+    geom_bar(color="darkblue",fill="lightblue",stat="identity")+
+    ggtitle("Total steps taken every day",)+xlab("Date")+ylab("Total Steps")+
+    theme(axis.text.x = element_text(angle=90,vjust = 0.5))
+print(g)
+```
+
+### 3. The mean and median of total number of steps taken per day
+
+```{r}
+mn.day<-mean(df1$totalSteps,na.rm = TRUE)
+med.day<-median(df1$totalSteps,na.rm = TRUE)
+```
+
+- Mean is : **`r mn.day`**
+
+- Median is : **`r med.day`**
+
+## **What is the average daily activity pattern?**
+
+### 1. Time series plot of average number of steps for all intervals
+
+```{r avgpattern}
+avg.int.steps<-with(data,tapply(steps,interval,mean,na.rm=TRUE))
+df2<-data.frame(interval=names(avg.int.steps),averageSteps=avg.int.steps)
+```
+
+```{r g2,fig.width=10}
+#time-series plot
+plot(df2$interval,df2$averageSteps,type="l",
+     main = "Average number of steps across all intervals",xlab = "Interval",
+     ylab="Average steps",lwd=2)    
+
+```
+
+### 2. 5-minute interval containing maximum average number of steps taken.
+
+```{r findmax}
+mx.mn.ind<-with(df2,which.max(averageSteps))
+mx.mn.int<-df2[mx.mn.ind,"interval"]
+mx.mn.val<-df2[mx.mn.ind,"averageSteps"]
+```
+
+Interval **`r mx.mn.int`** has maximum number of average steps **`r mx.mn.val`**..
+
+## **Inputing missing values**
+
+### 1.Total number of missing values(NA's)
+
+```{r missing}
+miss<-sum(is.na(data$steps))
+```
+
+Total missing values are: **`r miss`**.
+
+### 2. Fill all the missing values in the dataset.
+
+```{r fillmissing}
+logic.na<-which(is.na(data$steps))
+logic.int<-data$interval[logic.na]
+
+missval<-sapply(logic.int,function(x,db){
+    db$averageSteps[which(x==db$interval)]
+},db=df2)
+```
+
+### 3. New Dataset with NA's filled with mean values of that particular interval.
+
+```{r newdata2}
+data2<-data
+data2$steps[logic.na]=missval
+na.val<-sum(is.na(data2$steps))
+```
+
+The total number of NA values now are: **`r na.val`**.
+
+### 4. Histogram, mean and median of the new dataset.
+
+```{r histnew}
+total.steps.new<-with(data2,tapply(steps,date,sum,na.rm=TRUE))
+df3<-data.frame(dates=names(total.steps.new),totalSteps=total.steps.new)
+
+library(ggplot2)
+g2<-ggplot(df3,aes(x=dates,y=totalSteps))+
+    geom_bar(color="darkblue",fill="lightblue",stat="identity")+
+    ggtitle("Total steps taken every day (NA's are replaced with mean steps on interval)",)+xlab("Date")+ylab("Total Steps")+
+    theme(axis.text.x = element_text(angle=90,vjust = 0.5))
+print(g2)
+
+```
+
+```{r}
+mn.day.new<-mean(df3$totalSteps,na.rm = TRUE)
+med.day.new<-median(df3$totalSteps,na.rm = TRUE)
+```
+
+- Old Mean is : **`r mn.day`**
+
+- New Mean is : **`r mn.day.new`**
+
+- Old Median is : **`r med.day`**
+
+- New Median is : **`r med.day.new`**
 
 
-## Loading and preprocessing the data
+## **Are there differences in activity patterns between weekdays and weekends?**
 
+### 1. New Factor variable fct.week with data2.
 
+```{r addvariable}
+fct.week<-factor(ifelse(weekdays(data2$date) %in% c("Saturday","Sunday"),"weekend","weekday"))
+data2<-cbind(data2,fct.week)
+str(data2)
+```
 
-## What is mean total number of steps taken per day?
+### 2. Panel Plot of time series interval and average steps across "weekday" and "weekend".
 
+```{r panelplot}
+spl.db<-split(data2,data2$fct.week)
+reqd.values<-lapply(spl.db,function(x){
+ tapply(x$steps,x$interval,mean,na.rm=TRUE)   
+})
 
+df4<-data.frame(intervals=c(names(reqd.values[[1]]),names(reqd.values[[2]])),
+                mean.steps=c(reqd.values[[1]],reqd.values[[2]]),
+                fct.week=(as.factor(c(rep("weekday",length(reqd.values[[1]])),
+                                   rep("weekend",length(reqd.values[[2]]))))))
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+##plot
+g3<-ggplot(data=df4,aes(x=intervals,y=mean.steps,group=fct.week))+
+    facet_grid(facets = fct.week~.)+
+    geom_line(color="darkblue")+
+    theme(axis.text.x = element_blank())+xlab("Intervals")+
+    ylab("Average Steps")+ggtitle("Mean steps across intervals for Weekdays and Weekends")
+print(g3)
+```
