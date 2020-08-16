@@ -15,6 +15,8 @@ The variables included are:
 
 - **interval:** Identifier for the 5-minute interval in which measurement was taken
 
+### Reading the Dataset
+
 ```{r Read&ProcessData}
 data<-read.csv("activity.csv")
 data$date<-as.Date(data$date)
